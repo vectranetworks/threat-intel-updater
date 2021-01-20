@@ -1,21 +1,37 @@
-import json
-import os
 import sys
 import logging.handlers
-import time
 from datetime import datetime, timedelta
 try:
     import requests
     from requests import Request
-    from indicators import IOC
+    import indicators
 except Exception as error:
     print('\nMissing import requirements: {}\n'.format(str(error)))
     sys.exit(0)
 
+
+class Error(Exception):
+    pass
+
+
+class InvalidConfigError(Error):
+    def __init__(self, message):
+        self.message = message
+
+
 OAUTH_URL = "https://api.crowdstrike.com/oauth2/token"
-BASE_URL = "https://api.crowdstrike.com/intel/combined/indicators/v1/"
 
 LOG = logging.getLogger(__name__)
+
+
+def validate_config(func):
+    def check_config(**kwargs):
+        if all(value is not '' for value in kwargs.values()):
+            return func(**kwargs)
+        else:
+            LOG.info('Configuration not valid skipping. {}'.format(kwargs))
+            raise InvalidConfigError("Invalid Crowdstrike configuration.")
+    return check_config
 
 
 def gen_falcon_token(api_id, secret):
@@ -36,17 +52,18 @@ def gen_falcon_token(api_id, secret):
         sys.exit(0)
 
 
-def get_falcon_indicators(token, age=90, maximum=50000):
+def get_falcon_indicators(access_token, base_url, age=90, maximum=50000):
     """
     Returns Falcon indicators
 
-    :param token: bearer-token
+    :param access_token: bearer-token
+    :param base_url: url for the correct falcon region
     :param age: indicates with age less than or equal to the number of specified days
     :param maximum: upper limit of the number of indicators returned total (max 50,000)
     :return: list of Falcon indicators
     """
     session = requests.Session()
-    token_header = {"Authorization": "Bearer {}".format(token)}
+    token_header = {"Authorization": "Bearer {}".format(access_token)}
     params = {
         'sort': '_marker.asc',
         'include_deleted': 'false',
@@ -66,7 +83,7 @@ def get_falcon_indicators(token, age=90, maximum=50000):
     while params['offset'] <= (total or maximum):
         LOG.debug('Debug params{}'.format(params))
 
-        indicators = Request('GET', BASE_URL, headers=token_header, params=params)
+        indicators = Request('GET', base_url, headers=token_header, params=params)
         prepared = indicators.prepare()
         resp = session.send(prepared)
 
@@ -111,7 +128,7 @@ def gen_iocs(indicator_list):
     """
     ioc_list = list()
     [ioc_list.append(
-        IOC(
+        indicators.IOC(
             i['indicator'],
             'ip' if i['type'] == 'ip_address' else i['type'],
             i['malware_families']
@@ -119,16 +136,22 @@ def gen_iocs(indicator_list):
     return ioc_list
 
 
-def main():
-    log_level = logging.DEBUG
-    logging.basicConfig(level=log_level)
-    token = gen_falcon_token('5b20db43da5b429faac51a92733e7d66', 'l4WhedYNU8rfuLEGS910PZoQy2mbvtgI7niM35F6')
-    indicators = get_falcon_indicators(token)
-    LOG.info('Falcon returned {} total indicators'.format(len(indicators)))
+@validate_config
+def get_crowdstrike(**kwargs):
+    """
+    Generates list of Crowdstrike Falcon indicators
+
+    :param kwargs: api_id, api secret, base_url (configured in config.json)
+    :return: list of IOC class IOCs
+    """
+    token = gen_falcon_token(kwargs['api_id'], kwargs['secret'])
+    indicators = get_falcon_indicators(token, kwargs['base_url'])
+    LOG.debug('Falcon returned {} total indicators'.format(len(indicators)))
     #  dump_indicators(indicators)
     falcon_iocs = gen_iocs(indicators)
     #  dump_iocs(falcon_iocs)
+    return falcon_iocs
 
 
 if __name__ == '__main__':
-    main()
+    get_crowdstrike()

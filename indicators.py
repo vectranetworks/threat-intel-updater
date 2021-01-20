@@ -1,5 +1,9 @@
 import logging.handlers
 import json
+import time
+import crowdstrike
+"""Commented out until all stix modules are determined"""
+#  try:
 from stix.core import STIXPackage
 from stix.indicator import Indicator, CompositeIndicatorExpression
 from stix.ttp import TTP, Resource, Behavior
@@ -40,16 +44,6 @@ class IOC:
         self.label = ioc_label if ioc_label is not None else []
 
 
-def validate_config(func):
-    def check_config(**kwargs):
-        if all(value is not '' for value in kwargs.values()):
-            return func()
-        else:
-            LOG.info('Configuration not valid skipping. {}'.format(kwargs))
-            return
-    return check_config
-
-
 def validate_cognito_config(func):
     def check_cognito_config(**kwargs):
         if all(value is not '' for value in kwargs.values()):
@@ -59,41 +53,100 @@ def validate_cognito_config(func):
     return check_cognito_config
 
 
-def package_ioc(pkg, indicator_type, value):
+def package_ioc(pkg, ioc):
     indicator = Indicator()
-    if indicator_type == 'ip':
+    if ioc.type == 'ip':
         address = Address()
-        address.address_value = value
+        address.address_value = ioc.value
         address.address_value.condition = "Equals"
         indicator.observable = Observable(address)
-    elif indicator_type == 'domain':
+    elif ioc.type == 'domain':
         domain = DomainName()
-        domain.value = value
+        domain.value = ioc.value
         indicator.observable = Observable(domain)
     else:
-        LOG.error('Unsupported indicator type: {}, skipping.'.format(indicator_type))
+        LOG.error('Unsupported indicator type: {}, skipping.'.format(ioc.type))
         return
 
     pkg.add_indicator(indicator)
 
 
-def open_config():
+def get_config():
     with open('config.json') as json_config:
         config = json.load(json_config)
     cognito_config = config.get('cognito')
     crowdstrike_config = config.get('crowdstrike')
     fireeye_config = config.get('fireeye')
-    return cognito_config, crowdstrike_config, fireeye_config
+    system_config = config.get('system')
+    return cognito_config, crowdstrike_config, fireeye_config, system_config
+
+
+def set_logging(level):
+    log_level = logging.DEBUG if level == 'DEBUG' else logging.INFO
+    logging.basicConfig(level=log_level)
+    # logging.basicConfig(filename='/var/log/indicators.log', format='%(asctime)s: %(message)s', level=logging.INFO)
+
+
+def init_stix_pkg(title):
+    """
+    Initializes STIX package
+    :param title: Title of STIX threat intel file
+    :return: stixk package
+    """
+    pkg = STIXPackage()
+    pkg.title = title
+    return pkg
+
+
+def write_stix(pkg, outfile):
+    """
+    Writes STIX pkg contents to the outfile
+
+    :param pkg: STIX pkg
+    :param outfile: output file
+    """
+    with open(outfile, 'wb') as fh:
+        fh.write(pkg.to_xml())
 
 
 def main():
-    log_level = logging.DEBUG
-    logging.basicConfig(level=log_level)
-    cognito_config, crowdstrike_config, fireeye_config = open_config()
-    while True:
-        @validate_config
+    """
+    Load configurations from file
+    """
+    cognito_config, crowdstrike_config, fireeye_config, system_config = get_config()
 
-    #  Loop through gathering IOCs, creating STIX file, uploading to Cognito
+    """
+    Configure logging level from configuration file
+    """
+    set_logging(system_config['log_level'])
+
+    """
+    Loop forever sleeping 1 day by default
+    """
+    while True:
+        """
+        Crowdstrike
+        """
+        try:
+            cs_pkg = init_stix_pkg("Crowdstrike Threat Intel")
+
+            LOG.info('Starting collection of Crowdstrike indicators')
+            cs_indicators = crowdstrike.get_crowdstrike(**crowdstrike_config)
+            LOG.info('Falcon returned {} total IOCs'.format(len(cs_indicators)))
+
+            """
+            Add IOCs to STIX pkg, and write pkg to xml file
+            """
+            for i in cs_indicators:
+                package_ioc(cs_pkg, i)
+
+            write_stix(cs_pkg, system_config['crowdstrike_stix'])
+
+        except crowdstrike.InvalidConfigError:
+            continue
+
+        LOG.info('Process complete, sleeping for {} seconds.'.format(system_config['sleep_seconds']))
+        time.sleep(system_config['sleep_seconds'])
 
 
 if __name__ == '__main__':
