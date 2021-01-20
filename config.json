@@ -1,0 +1,16 @@
+{
+  "cognito": {
+    "brain": "",
+    "token": ""
+  },
+  "crowdstrike": {
+    "api_id": "5b20db43da5b429faac51a92733e7d66",
+    "token": "l4WhedYNU8rfuLEGS910PZoQy2mbvtgI7niM35F6",
+    "base_url": "https://api.crowdstrike.com/intel/combined/indicators/v1/"
+  },
+  "fireeye": {
+    "api_id": "",
+    "token": "",
+    "base_url": ""
+  }
+}
