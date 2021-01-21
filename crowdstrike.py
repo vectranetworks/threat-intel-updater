@@ -52,7 +52,6 @@ def gen_falcon_token(api_id, secret):
         sys.exit(0)
 
 
-#def get_falcon_indicators(access_token, base_url, age=90, maximum=12000):
 def get_falcon_indicators(access_token, **kwargs):
     """
     Returns Falcon indicators
@@ -60,7 +59,7 @@ def get_falcon_indicators(access_token, **kwargs):
     :param access_token: bearer-token
     :param base_url: url for the correct falcon region
     :param age: indicates with age less than or equal to the number of specified days
-    :param maximum: upper limit of the number of indicators returned total (max 50,000)
+    :param max: upper limit of the number of indicators returned total (max 50,000)
     :return: list of Falcon indicators
     """
     session = requests.Session()
@@ -141,7 +140,8 @@ def gen_iocs(indicator_list):
         indicators.IOC(
             i['indicator'],
             'ip' if i['type'] == 'ip_address' else i['type'],
-            i['malware_families']
+            i['malware_families'],
+            i['malicious_confidence']
         )) for i in indicator_list]
     return ioc_list
 

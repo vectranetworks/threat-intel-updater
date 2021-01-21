@@ -15,8 +15,15 @@
         "max": 1000
       },
       "feed2": {
-        "name": "Crowdstrike Threat Intel Malware",
-        "stix_file": "crowdstrike_stix_malware.xml",
+        "name": "Crowdstrike Emotet",
+        "stix_file": "crowdstrike_stix_emotet.xml",
+        "filter": "malware_families:'Emotet'",
+        "age": 90,
+        "max": 2000
+      },
+      "feed3": {
+        "name": "",
+        "stix_file": "crowdstrike_stix_emotet.xml",
         "filter": "malware_families:'Emotet'",
         "age": 90,
         "max": 2000

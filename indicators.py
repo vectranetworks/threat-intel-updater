@@ -45,10 +45,11 @@ class IOC:
     """
     Class to create an IOC object
     """
-    def __init__(self, ioc=None, ioc_type=None, ioc_label=None):
+    def __init__(self, ioc=None, ioc_type=None, ioc_label=None, ioc_confidence=None):
         self.value = ioc if ioc is not None else []
         self.type = ioc_type if (ioc_type in ['ip', 'domain']) else 'undef'
         self.label = ioc_label if ioc_label is not None else []
+        self.confidence = ioc_confidence if ioc_confidence is not None else None
 
 
 def validate_cognito_config(func):
@@ -67,10 +68,12 @@ def package_ioc(pkg, ioc):
         address.address_value = ioc.value
         address.address_value.condition = "Equals"
         indicator.observable = Observable(address)
+        indicator.confidence = ioc.confidence
     elif ioc.type == 'domain':
         domain = DomainName()
         domain.value = ioc.value
         indicator.observable = Observable(domain)
+        indicator.confidence = ioc.confidence
     else:
         LOG.error('Unsupported indicator type: {}, skipping.'.format(ioc.type))
         return
@@ -170,22 +173,22 @@ def main():
     vc = init_cognito_api(**cognito_config)
 
     """
+    Split feeds dictionaries from CrowdStrike coinfig
+    """
+    feeds = crowdstrike_config.pop('feeds')
+
+    """
     Loop forever sleeping 1 day by default
     """
     while True:
         """
         Crowdstrike
         """
+        for feed in feeds.keys():
+            cs_pkg = init_stix_pkg(feeds[feed]['name'])
 
-        """
-        Split feeds dictionaries from CrowdStrike coinfig
-        """
-        feeds = crowdstrike_config.pop('feeds')
-        try:
-            for feed in feeds.keys():
-                cs_pkg = init_stix_pkg(feeds[feed]['name'])
-
-                LOG.info('Starting collection of Crowdstrike indicators')
+            LOG.info('Starting collection of Crowdstrike indicators')
+            try:
                 cs_config = {**crowdstrike_config, **feeds[feed]}
                 cs_indicators = crowdstrike.get_crowdstrike(**cs_config)
                 LOG.info('Falcon returned {} total IOCs'.format(len(cs_indicators)))
@@ -203,8 +206,8 @@ def main():
                 """
                 update_cognito_threat_feed(vc, feeds[feed]['stix_file'], feeds[feed]['name'])
 
-        except crowdstrike.InvalidConfigError:
-            continue
+            except crowdstrike.InvalidConfigError:
+                continue
 
         LOG.info('Process complete, sleeping for {} seconds.'.format(system_config['sleep_seconds']))
         time.sleep(system_config['sleep_seconds'])
