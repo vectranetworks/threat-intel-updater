@@ -40,6 +40,7 @@ LOG = logging.getLogger(__name__)
 requests.packages.urllib3.disable_warnings()
 ssl._create_default_https_context = ssl._create_unverified_context
 
+
 class IOC:
     """
     Class to create an IOC object
@@ -139,7 +140,7 @@ def update_cognito_threat_feed(client, xml, feed):
             LOG.info('Updating Cognito Threat Feed [{}].'.format(feedname))
             client.post_stix_file(feed_id=fid, stix_file=filename)
         except FileNotFoundError:
-            LOG.error('Not able to access file [{}]'.format(fn))
+            LOG.error('Not able to access file [{}]'.format(filename))
 
     feed_id = client.get_feed_by_name(name=feed)
     if feed_id:
@@ -175,25 +176,32 @@ def main():
         """
         Crowdstrike
         """
+
+        """
+        Split feeds dictionaries from CrowdStrike coinfig
+        """
+        feeds = crowdstrike_config.pop('feeds')
         try:
-            cs_pkg = init_stix_pkg(system_config['crowdstrike_feed'])
+            for feed in feeds.keys():
+                cs_pkg = init_stix_pkg(feeds[feed]['name'])
 
-            LOG.info('Starting collection of Crowdstrike indicators')
-            cs_indicators = crowdstrike.get_crowdstrike(**crowdstrike_config)
-            LOG.info('Falcon returned {} total IOCs'.format(len(cs_indicators)))
+                LOG.info('Starting collection of Crowdstrike indicators')
+                cs_config = {**crowdstrike_config, **feeds[feed]}
+                cs_indicators = crowdstrike.get_crowdstrike(**cs_config)
+                LOG.info('Falcon returned {} total IOCs'.format(len(cs_indicators)))
 
-            """
-            Add IOCs to STIX pkg, and write pkg to xml file
-            """
-            for i in cs_indicators:
-                package_ioc(cs_pkg, i)
+                """
+                Add IOCs to STIX pkg, and write pkg to xml file
+                """
+                for i in cs_indicators:
+                    package_ioc(cs_pkg, i)
 
-            write_stix(cs_pkg, system_config['crowdstrike_stix'])
+                write_stix(cs_pkg, feeds[feed]['stix_file'])
 
-            """
-            Create or update CS threat feed
-            """
-            update_cognito_threat_feed(vc, system_config['crowdstrike_stix'], system_config['crowdstrike_feed'])
+                """
+                Create or update CS threat feed
+                """
+                update_cognito_threat_feed(vc, feeds[feed]['stix_file'], feeds[feed]['name'])
 
         except crowdstrike.InvalidConfigError:
             continue

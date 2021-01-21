@@ -52,7 +52,8 @@ def gen_falcon_token(api_id, secret):
         sys.exit(0)
 
 
-def get_falcon_indicators(access_token, base_url, age=90, maximum=12000):
+#def get_falcon_indicators(access_token, base_url, age=90, maximum=12000):
+def get_falcon_indicators(access_token, **kwargs):
     """
     Returns Falcon indicators
 
@@ -76,15 +77,23 @@ def get_falcon_indicators(access_token, base_url, age=90, maximum=12000):
     total = 1
     ind_list = list()
     filters = ['type:"domain", type:"ip_address"']
-    published = datetime.now() - timedelta(days=age)
+    published = datetime.now() - timedelta(days=kwargs['age'])
     published_ts = int(published.timestamp())
+
+    if 'filter' in kwargs.keys():
+        filters.append(kwargs['filter'])
+
     filters.append("published_date:>={}".format(published_ts))
+
     params['filter'] = '+'.join(filters)
-    while params['offset'] <= (total and maximum):
-        params['limit'] = maximum - params['offset'] if maximum - params['offset'] < params['limit'] else params['limit']
+
+    while params['offset'] <= (total and kwargs['max']):
+        params['limit'] = kwargs['max'] - params['offset'] if \
+            kwargs['max'] - params['offset'] < params['limit'] else params['limit']
+
         LOG.debug('Debug params{}'.format(params))
 
-        indicators = Request('GET', base_url, headers=token_header, params=params)
+        indicators = Request('GET', kwargs['base_url'], headers=token_header, params=params)
         prepared = indicators.prepare()
         resp = session.send(prepared)
 
@@ -146,7 +155,8 @@ def get_crowdstrike(**kwargs):
     :return: list of IOC class IOCs
     """
     token = gen_falcon_token(kwargs['api_id'], kwargs['secret'])
-    indicators = get_falcon_indicators(token, kwargs['base_url'])
+    #indicators = get_falcon_indicators(token, kwargs['base_url'])
+    indicators = get_falcon_indicators(token, **kwargs)
     LOG.debug('Falcon returned {} total indicators'.format(len(indicators)))
     #  dump_indicators(indicators)
     falcon_iocs = gen_iocs(indicators)

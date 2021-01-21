@@ -1,16 +1,50 @@
 {
   "cognito": {
-    "brain": "",
-    "token": ""
+    "brain": "cs-brain.vectracloudlab.com",
+    "token": "57a68259aa00ec17abf40aa9b401cf48d703f970"
   },
   "crowdstrike": {
     "api_id": "5b20db43da5b429faac51a92733e7d66",
-    "token": "l4WhedYNU8rfuLEGS910PZoQy2mbvtgI7niM35F6",
-    "base_url": "https://api.crowdstrike.com/intel/combined/indicators/v1/"
+    "secret": "l4WhedYNU8rfuLEGS910PZoQy2mbvtgI7niM35F6",
+    "base_url": "https://api.crowdstrike.com/intel/combined/indicators/v1/",
+    "feeds": {
+      "feed1": {
+        "name": "Crowdstrike Threat Intel",
+        "stix_file": "crowdstrike_stix.xml",
+        "age": 90,
+        "max": 1000
+      },
+      "feed2": {
+        "name": "Crowdstrike Threat Intel Malware",
+        "stix_file": "crowdstrike_stix_malware.xml",
+        "filter": "malware_families:'Emotet'",
+        "age": 90,
+        "max": 2000
+      }
+    }
   },
-  "fireeye": {
+ "fireye": {
     "api_id": "",
-    "token": "",
-    "base_url": ""
+    "secret": "",
+    "base_url": "",
+    "feeds": {
+      "feed1": {
+        "name": "",
+        "stix_file": "",
+        "age": 90,
+        "max": 1000
+      },
+      "feed2": {
+        "name": "",
+        "stix_file": "",
+        "filter": "",
+        "age": 90,
+        "max": 2000
+      }
+    }
+  },
+  "system": {
+    "sleep_seconds": 86400,
+    "log_level": "DEBUG"
   }
 }
