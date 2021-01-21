@@ -1,9 +1,12 @@
 import logging.handlers
 import json
 import time
-import crowdstrike
+import ssl
 """Commented out until all stix modules are determined"""
 #  try:
+import crowdstrike
+import vat.vectra as vectra
+import requests
 from stix.core import STIXPackage
 from stix.indicator import Indicator, CompositeIndicatorExpression
 from stix.ttp import TTP, Resource, Behavior
@@ -33,6 +36,9 @@ except Exception as error:
 
 LOG = logging.getLogger(__name__)
 
+"""Suppress Detect certificate warning"""
+requests.packages.urllib3.disable_warnings()
+ssl._create_default_https_context = ssl._create_unverified_context
 
 class IOC:
     """
@@ -47,7 +53,7 @@ class IOC:
 def validate_cognito_config(func):
     def check_cognito_config(**kwargs):
         if all(value is not '' for value in kwargs.values()):
-            return func()
+            return func(**kwargs)
         else:
             raise Exception('Ensure config.json has valid cognito configuration.')
     return check_cognito_config
@@ -109,6 +115,43 @@ def write_stix(pkg, outfile):
         fh.write(pkg.to_xml())
 
 
+@validate_cognito_config
+def init_cognito_api(**kwargs):
+    """
+    Initializes the Cognito API
+    :param kwargs: dictionary containing cognito API information configured in config.json
+    :return: returns a vectra client object
+    """
+    vectra_client = vectra.VectraClient(url='https://' + kwargs['brain'], token=kwargs['token'])
+    return vectra_client
+
+
+def update_cognito_threat_feed(client, xml, feed):
+    """
+    Check if named feed exists and update, otherwise create and update
+
+    :param client: initialized vectra client object
+    :param xml: name of file that contains STIX TI information
+    :param feed: name of threat feed
+    """
+    def update_feed(fid, filename, feedname):
+        try:
+            LOG.info('Updating Cognito Threat Feed [{}].'.format(feedname))
+            client.post_stix_file(feed_id=fid, stix_file=filename)
+        except FileNotFoundError:
+            LOG.error('Not able to access file [{}]'.format(fn))
+
+    feed_id = client.get_feed_by_name(name=feed)
+    if feed_id:
+        update_feed(feed_id, xml, feed)
+
+    else:
+        LOG.info('Creating Cognito Threat Feed [{}] for first time.'.format(feed))
+        client.create_feed(name=feed, category='cnc', certainty='Low', itype='Malware Artifacts', duration=2)
+        feed_id = client.get_feed_by_name(name=feed)
+        update_feed(feed_id, xml, feed)
+
+
 def main():
     """
     Load configurations from file
@@ -121,6 +164,11 @@ def main():
     set_logging(system_config['log_level'])
 
     """
+    Initialize Vectra API client
+    """
+    vc = init_cognito_api(**cognito_config)
+
+    """
     Loop forever sleeping 1 day by default
     """
     while True:
@@ -128,7 +176,7 @@ def main():
         Crowdstrike
         """
         try:
-            cs_pkg = init_stix_pkg("Crowdstrike Threat Intel")
+            cs_pkg = init_stix_pkg(system_config['crowdstrike_feed'])
 
             LOG.info('Starting collection of Crowdstrike indicators')
             cs_indicators = crowdstrike.get_crowdstrike(**crowdstrike_config)
@@ -141,6 +189,11 @@ def main():
                 package_ioc(cs_pkg, i)
 
             write_stix(cs_pkg, system_config['crowdstrike_stix'])
+
+            """
+            Create or update CS threat feed
+            """
+            update_cognito_threat_feed(vc, system_config['crowdstrike_stix'], system_config['crowdstrike_feed'])
 
         except crowdstrike.InvalidConfigError:
             continue

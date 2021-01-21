@@ -52,7 +52,7 @@ def gen_falcon_token(api_id, secret):
         sys.exit(0)
 
 
-def get_falcon_indicators(access_token, base_url, age=90, maximum=50000):
+def get_falcon_indicators(access_token, base_url, age=90, maximum=12000):
     """
     Returns Falcon indicators
 
@@ -80,7 +80,8 @@ def get_falcon_indicators(access_token, base_url, age=90, maximum=50000):
     published_ts = int(published.timestamp())
     filters.append("published_date:>={}".format(published_ts))
     params['filter'] = '+'.join(filters)
-    while params['offset'] <= (total or maximum):
+    while params['offset'] <= (total and maximum):
+        params['limit'] = maximum - params['offset'] if maximum - params['offset'] < params['limit'] else params['limit']
         LOG.debug('Debug params{}'.format(params))
 
         indicators = Request('GET', base_url, headers=token_header, params=params)
