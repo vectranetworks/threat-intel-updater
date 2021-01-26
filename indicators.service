@@ -1,0 +1,13 @@
+[Unit]
+Description=Vectra Threat Intel Import Service
+After=multi-user.target
+
+[Service]
+WorkingDirectory=/home/admin/indicators
+User=admin
+Type=idle
+ExecStart=/usr/bin/python3 /home/admin/indicators/indicators.py &> /dev/null
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
