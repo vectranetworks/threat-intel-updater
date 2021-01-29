@@ -110,15 +110,18 @@ def get_falcon_indicators(access_token, **kwargs):
     return ind_list
 
 
-def dump_indicators(indicators):
+def dump_indicators(indicators, raw_file):
     """
-    Debugging routine, not utilized in production
+    Optional output of raw indicators to csv file
     """
-    [print('indicator:{}, type:{}, labels-name:{}'.format(
-        i['indicator'],
-        i['type'],
-        i['malware_families']
-    )) for i in indicators]
+    with open(raw_file, 'w') as outfile:
+        [outfile.write('{},{},{},{},{}\n'.format(
+            i['indicator'],
+            i['type'],
+            i['actors'],
+            i['malware_families'],
+            i['malicious_confidence']
+        )) for i in indicators]
 
 
 def dump_iocs(iocs):
@@ -141,7 +144,8 @@ def gen_iocs(indicator_list):
             i['indicator'],
             'ip' if i['type'] == 'ip_address' else i['type'],
             i['malware_families'],
-            i['malicious_confidence']
+            i['malicious_confidence'],
+            str(i['actors'] + i['malware_families'])
         )) for i in indicator_list]
     return ioc_list
 
@@ -158,7 +162,8 @@ def get_crowdstrike(**kwargs):
     #indicators = get_falcon_indicators(token, kwargs['base_url'])
     indicators = get_falcon_indicators(token, **kwargs)
     LOG.debug('Falcon returned {} total indicators'.format(len(indicators)))
-    #  dump_indicators(indicators)
+    if bool(kwargs.get('raw_file')):
+        dump_indicators(indicators, kwargs.get('raw_file'))
     falcon_iocs = gen_iocs(indicators)
     #  dump_iocs(falcon_iocs)
     return falcon_iocs
@@ -166,3 +171,4 @@ def get_crowdstrike(**kwargs):
 
 if __name__ == '__main__':
     get_crowdstrike()
+

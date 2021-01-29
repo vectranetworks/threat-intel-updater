@@ -12,21 +12,25 @@
         "name": "Crowdstrike Threat Intel",
         "stix_file": "crowdstrike_stix.xml",
         "age": 90,
-        "max": 1000
+        "max": 1000,
+        "confidence": "Medium"
       },
       "feed2": {
         "name": "Crowdstrike Emotet",
         "stix_file": "crowdstrike_stix_emotet.xml",
         "filter": "malware_families:'Emotet'",
         "age": 90,
-        "max": 2000
+        "max": 2000,
+        "confidence": "High",
+        "raw_file": "Emotet_raw.csv"
       },
       "feed3": {
         "name": "",
         "stix_file": "crowdstrike_stix_emotet.xml",
         "filter": "malware_families:'Emotet'",
         "age": 90,
-        "max": 2000
+        "max": 2000,
+        "confidence": "High"
       }
     }
   },
@@ -51,7 +55,7 @@
     }
   },
   "system": {
-    "sleep_seconds": 86400,
+    "interval_days": 0.5,
     "log_level": "DEBUG"
   }
 }

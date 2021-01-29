@@ -2,6 +2,7 @@ import logging.handlers
 import json
 import time
 import ssl
+import math
 """Commented out until all stix modules are determined"""
 #  try:
 import crowdstrike
@@ -45,11 +46,12 @@ class IOC:
     """
     Class to create an IOC object
     """
-    def __init__(self, ioc=None, ioc_type=None, ioc_label=None, ioc_confidence=None):
+    def __init__(self, ioc=None, ioc_type=None, ioc_label=None, ioc_confidence=None, ioc_description=None):
         self.value = ioc if ioc is not None else []
         self.type = ioc_type if (ioc_type in ['ip', 'domain']) else 'undef'
         self.label = ioc_label if ioc_label is not None else []
         self.confidence = ioc_confidence if ioc_confidence is not None else None
+        self.description = ioc_description if ioc_description is not None else None
 
 
 def validate_cognito_config(func):
@@ -69,11 +71,13 @@ def package_ioc(pkg, ioc):
         address.address_value.condition = "Equals"
         indicator.observable = Observable(address)
         indicator.confidence = ioc.confidence
+        indicator.description = ioc.description
     elif ioc.type == 'domain':
         domain = DomainName()
         domain.value = ioc.value
         indicator.observable = Observable(domain)
         indicator.confidence = ioc.confidence
+        indicator.description = ioc.description
     else:
         LOG.error('Unsupported indicator type: {}, skipping.'.format(ioc.type))
         return
@@ -130,13 +134,15 @@ def init_cognito_api(**kwargs):
     return vectra_client
 
 
-def update_cognito_threat_feed(client, xml, feed):
+def update_cognito_threat_feed(client, xml, feed, days, certainty):
     """
     Check if named feed exists and update, otherwise create and update
 
     :param client: initialized vectra client object
     :param xml: name of file that contains STIX TI information
     :param feed: name of threat feed
+    :param days: the number days (can be fractional) for the refresh interval
+    :certainty: threat feed certainty (Low, Medium, High)
     """
     def update_feed(fid, filename, feedname):
         try:
@@ -151,7 +157,8 @@ def update_cognito_threat_feed(client, xml, feed):
 
     else:
         LOG.info('Creating Cognito Threat Feed [{}] for first time.'.format(feed))
-        client.create_feed(name=feed, category='cnc', certainty='Low', itype='Malware Artifacts', duration=2)
+        client.create_feed(name=feed, category='cnc', certainty=certainty.capitalize(),
+                           itype='Malware Artifacts', duration=math.ceil(days) * 2)
         feed_id = client.get_feed_by_name(name=feed)
         update_feed(feed_id, xml, feed)
 
@@ -178,7 +185,7 @@ def main():
     feeds = crowdstrike_config.pop('feeds')
 
     """
-    Loop forever sleeping 1 day by default
+    Loop forever sleeping specified number of seconds
     """
     while True:
         """
@@ -204,13 +211,14 @@ def main():
                 """
                 Create or update CS threat feed
                 """
-                update_cognito_threat_feed(vc, feeds[feed]['stix_file'], feeds[feed]['name'])
+                update_cognito_threat_feed(vc, feeds[feed]['stix_file'], feeds[feed]['name'],
+                                           system_config['interval_days'], feeds[feed]['confidence'])
 
             except crowdstrike.InvalidConfigError:
                 continue
 
-        LOG.info('Process complete, sleeping for {} seconds.'.format(system_config['sleep_seconds']))
-        time.sleep(system_config['sleep_seconds'])
+        LOG.info('Process complete, sleeping for {} days.'.format(system_config['interval_days']))
+        time.sleep(int(system_config['interval_days'] * 86400))
 
 
 if __name__ == '__main__':
