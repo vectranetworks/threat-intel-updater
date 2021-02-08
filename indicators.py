@@ -3,9 +3,13 @@ import json
 import time
 import ssl
 import math
+import os
+import glob
+
 """Commented out until all stix modules are determined"""
 #  try:
 import crowdstrike
+import fireeye
 import vat.vectra as vectra
 import requests
 from stix.core import STIXPackage
@@ -142,7 +146,7 @@ def update_cognito_threat_feed(client, xml, feed, days, certainty):
     :param xml: name of file that contains STIX TI information
     :param feed: name of threat feed
     :param days: the number days (can be fractional) for the refresh interval
-    :certainty: threat feed certainty (Low, Medium, High)
+    :param certainty: threat feed certainty (Low, Medium, High)
     """
     def update_feed(fid, filename, feedname):
         try:
@@ -150,17 +154,29 @@ def update_cognito_threat_feed(client, xml, feed, days, certainty):
             client.post_stix_file(feed_id=fid, stix_file=filename)
         except FileNotFoundError:
             LOG.error('Not able to access file [{}]'.format(filename))
-
+        except vectra.HTTPException as error:
+            LOG.error('File {} {}.  Deleting threat feed.'.format(filename, error))
+            client.delete_feed(feed_id=fid)
     feed_id = client.get_feed_by_name(name=feed)
     if feed_id:
         update_feed(feed_id, xml, feed)
-
     else:
         LOG.info('Creating Cognito Threat Feed [{}] for first time.'.format(feed))
         client.create_feed(name=feed, category='cnc', certainty=certainty.capitalize(),
                            itype='Malware Artifacts', duration=math.ceil(days) * 2)
         feed_id = client.get_feed_by_name(name=feed)
         update_feed(feed_id, xml, feed)
+
+
+def bulk_update_cognito_threat_feed(client, xml_dir, feed_prefix, days, certainty):
+    if os.path.isdir(xml_dir):
+        xml_list = glob.glob(xml_dir + '*.xml')
+        for xml in xml_list:
+            feed = feed_prefix + xml.split('/')[1].strip('.xml')
+            update_cognito_threat_feed(client, xml, feed, days, certainty)
+    else:
+        LOG.error('{} : Not a directory or does not exist.'.format(xml_dir))
+        return
 
 
 def main():
@@ -180,10 +196,10 @@ def main():
     vc = init_cognito_api(**cognito_config)
 
     """
-    Split feeds dictionaries from CrowdStrike coinfig
+    Split feeds dictionaries from CrowdStrike config
     """
-    feeds = crowdstrike_config.pop('feeds')
-
+    cs_feeds = crowdstrike_config.pop('feeds')
+    fe_feeds = fireeye_config.pop('feeds')
     """
     Loop forever sleeping specified number of seconds
     """
@@ -191,12 +207,12 @@ def main():
         """
         Crowdstrike
         """
-        for feed in feeds.keys():
-            cs_pkg = init_stix_pkg(feeds[feed]['name'])
+        for feed in cs_feeds.keys():
+            cs_pkg = init_stix_pkg(cs_feeds[feed]['name'])
 
             LOG.info('Starting collection of Crowdstrike indicators')
             try:
-                cs_config = {**crowdstrike_config, **feeds[feed]}
+                cs_config = {**crowdstrike_config, **cs_feeds[feed]}
                 cs_indicators = crowdstrike.get_crowdstrike(**cs_config)
                 LOG.info('Falcon returned {} total IOCs'.format(len(cs_indicators)))
 
@@ -206,16 +222,26 @@ def main():
                 for i in cs_indicators:
                     package_ioc(cs_pkg, i)
 
-                write_stix(cs_pkg, feeds[feed]['stix_file'])
+                write_stix(cs_pkg, cs_feeds[feed]['stix_file'])
 
                 """
                 Create or update CS threat feed
                 """
-                update_cognito_threat_feed(vc, feeds[feed]['stix_file'], feeds[feed]['name'],
-                                           system_config['interval_days'], feeds[feed]['confidence'])
+                update_cognito_threat_feed(vc, cs_feeds[feed]['stix_file'], cs_feeds[feed]['name'],
+                                           system_config['interval_days'], cs_feeds[feed]['confidence'])
 
             except crowdstrike.InvalidConfigError:
                 continue
+
+        """
+        FireEye
+        """
+        LOG.info('Starting collection of FireEye indicators')
+        for feed in fe_feeds.keys():
+            fe_config = {**fireeye_config, **fe_feeds[feed]}
+            fireeye.fireeye(**fe_config)
+            bulk_update_cognito_threat_feed(vc, fe_config['stix_dir'], fe_feeds[feed]['name'],
+                                            system_config['interval_days'], fe_feeds[feed]['confidence'])
 
         LOG.info('Process complete, sleeping for {} days.'.format(system_config['interval_days']))
         time.sleep(int(system_config['interval_days'] * 86400))
