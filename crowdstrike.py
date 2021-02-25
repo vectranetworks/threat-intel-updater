@@ -76,7 +76,8 @@ def get_falcon_indicators(access_token, **kwargs):
     """
     total = 1
     ind_list = list()
-    filters = ['type:"domain", type:"ip_address"']
+    # filters = ['type:"domain", type:"ip_address"']
+    filters = []
     published = datetime.now() - timedelta(days=kwargs['age'])
     published_ts = int(published.timestamp())
 

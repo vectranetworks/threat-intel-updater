@@ -31,6 +31,7 @@ try:
     from cybox.objects.socket_address_object import SocketAddress
     from cybox.objects.port_object import Port
     from cybox.objects.domain_name_object import DomainName
+    from cybox.objects.uri_object import URI
     from cybox.objects.file_object import File
     from cybox.objects.mutex_object import Mutex
     from cybox.objects.socket_address_object import SocketAddress
@@ -56,7 +57,7 @@ class IOC:
     def __init__(self, ioc=None, ioc_type=None, ioc_label=None, ioc_actor=None,
                  ioc_confidence=None, ioc_description=None, ioc_industry=None, ioc_region=None):
         self.value = ioc if ioc is not None else None
-        self.type = ioc_type if (ioc_type in ['ip', 'domain']) else 'undef'
+        self.type = ioc_type if (ioc_type in ['ip', 'domain', 'url']) else 'undef'
         self.label = ioc_label if ioc_label is not None else ['none']
         self.actor = ioc_actor if ioc_actor is not None else ['none']
         self.confidence = ioc_confidence if ioc_confidence is not None else None
@@ -100,6 +101,12 @@ def package_ioc(pkg, ioc):
         domain = DomainName()
         domain.value = ioc.value
         indicator.observable = Observable(domain)
+        indicator.confidence = ioc.confidence
+        indicator.description = ioc.description
+    elif ioc.type == 'url':
+        uri = URI()
+        uri.value = ioc.value
+        indicator.observable = Observable(uri)
         indicator.confidence = ioc.confidence
         indicator.description = ioc.description
     else:
