@@ -79,9 +79,7 @@ def get_fireeye_indicators(**kwargs):
         'X-App-Name': kwargs['X-App-Name']
     }
     response = requests.get(url + uri, headers=headers, verify=False)
-    #print(response)
-    #print(response.reason)
-    #print(response.content)
+    
     if response.status_code == 200:
         parsed = json.loads(response.text)
         ind_list = parsed[u'message']
@@ -103,7 +101,7 @@ def gen_iocs(indicator_list):
     """
     ioc_list = list()
     for i in indicator_list:
-        if i['ip'] is not None:
+        if i.get('ip') is not None:
             ioc_list.append(
                 indicators.IOC(
                     i['ip'],
@@ -114,7 +112,7 @@ def gen_iocs(indicator_list):
                     i.get('title')
                 )
             )
-        elif i['domain'] is not None:
+        elif i.get('domain') is not None:
             ioc_list.append(
                 indicators.IOC(
                     i['domain'],
