@@ -1,6 +1,7 @@
 import sys
 import logging.handlers
 from datetime import datetime, timedelta
+import itertools
 try:
     import requests
     from requests import Request
@@ -86,7 +87,7 @@ def get_falcon_indicators(access_token, **kwargs):
 
     params['filter'] = '+'.join(filters)
 
-    while params['offset'] <= (total and kwargs['max']):
+    while params['offset'] <= total <= kwargs['max']:
         params['limit'] = kwargs['max'] - params['offset'] if \
             kwargs['max'] - params['offset'] < params['limit'] else params['limit']
 
@@ -104,7 +105,7 @@ def get_falcon_indicators(access_token, **kwargs):
 
         if bool(resp.json()['meta'].get('pagination')):
             total = resp.json()['meta']['pagination']['total']
-
+            LOG.debug('Setting total to:{}'.format(total))
         params['offset'] += 10000
         ind_list += resp.json()['resources']
     return ind_list
@@ -114,6 +115,7 @@ def dump_indicators(indicators, raw_file):
     """
     Optional output of raw indicators to csv file
     """
+    """
     with open(raw_file, 'w') as outfile:
         [outfile.write('{},{},{},{},{}\n'.format(
             i['indicator'],
@@ -122,6 +124,66 @@ def dump_indicators(indicators, raw_file):
             i['malware_families'],
             i['malicious_confidence']
         )) for i in indicators]
+    """
+    LOG.info('Dumping {} indicators to {}'.format(len(indicators), raw_file))
+    with open(raw_file, 'w') as outfile:
+        count = 0
+        for i in indicators:
+            count += 1
+            for r in itertools.product(i['actors'], i['malware_families']):
+                outfile.write('{},{},{},{},{},{},{}\n'.format(
+                    i['indicator'],
+                    i['type'],
+                    r[0],
+                    r[1],
+                    i['malicious_confidence'],
+                    i.get('targets'),
+                    i.get('region')
+                ))
+                outfile.flush()
+                print('{},{},{},{},{},{},{}\n'.format(
+                    i['indicator'],
+                    i['type'],
+                    r[0],
+                    r[1],
+                    i['malicious_confidence'],
+                    i.get('targets'),
+                    i.get('region')
+                ))
+    LOG.info('Dumped {} indicators to file'.format(count))
+
+
+def dump_indicators_from_iocs(iocs, raw_file):
+    """
+    Optional output of raw indicators to csv file
+    """
+    """
+    with open(raw_file, 'w') as outfile:
+        [outfile.write('{},{},{},{},{}\n'.format(
+            i['indicator'],
+            i['type'],
+            i['actors'],
+            i['malware_families'],
+            i['malicious_confidence']
+        )) for i in indicators]
+    """
+    LOG.info('Dumping {} indicators to {}'.format(len(iocs), raw_file))
+    with open(raw_file, 'w') as outfile:
+        count = 0
+        for i in iocs:
+            count += 1
+            for r in itertools.product(i.label, i.actor, i.industry, i.region):
+                outfile.write('{},{},{},{},{},{},{},{}\n'.format(
+                    i.value,
+                    i.type,
+                    r[0],
+                    r[1],
+                    i.confidence,
+                    i.description,
+                    r[2],
+                    r[3]
+                ))
+    LOG.info('Dumped {} indicators to file'.format(count))
 
 
 def dump_iocs(iocs):
@@ -129,7 +191,9 @@ def dump_iocs(iocs):
     Debugging routine, not utilized in production
     """
     for n in iocs:
-        print('{},{},{}'.format(n.value, n.type, n.label))
+        print('{},{},{},{},{},{},{},{}'.format(
+            n.value, n.type, n.label, n.actor, n.confidence, n.description, n.industry, n.region
+        ))
 
 
 def gen_iocs(indicator_list):
@@ -143,9 +207,12 @@ def gen_iocs(indicator_list):
         indicators.IOC(
             i['indicator'],
             'ip' if i['type'] == 'ip_address' else i['type'],
-            i['malware_families'],
+            i['malware_families'] if len(i['malware_families']) > 0 else ['none'],
+            i['actors'] if len(i['actors']) > 0 else ['none'],
             i['malicious_confidence'],
-            str(i['actors'] + i['malware_families'])
+            None,
+            i['targets'] if len(i['targets']) > 0 else ['none'],
+            i.get('region') if bool(i.get('region')) and len(i.get('region')) > 0 else ['none']
         )) for i in indicator_list]
     return ioc_list
 
@@ -159,13 +226,16 @@ def get_crowdstrike(**kwargs):
     :return: list of IOC class IOCs
     """
     token = gen_falcon_token(kwargs['api_id'], kwargs['secret'])
-    #indicators = get_falcon_indicators(token, kwargs['base_url'])
+    # indicators = get_falcon_indicators(token, kwargs['base_url'])
     indicators = get_falcon_indicators(token, **kwargs)
     LOG.debug('Falcon returned {} total indicators'.format(len(indicators)))
-    if bool(kwargs.get('raw_file')):
-        dump_indicators(indicators, kwargs.get('raw_file'))
+
     falcon_iocs = gen_iocs(indicators)
-    #  dump_iocs(falcon_iocs)
+
+    if bool(kwargs.get('raw_file')):
+        dump_indicators_from_iocs(falcon_iocs, kwargs.get('raw_file'))
+
+    # dump_iocs(falcon_iocs)
     return falcon_iocs
 
 
