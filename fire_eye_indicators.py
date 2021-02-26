@@ -4,9 +4,11 @@ from urllib.parse import urlencode, quote_plus
 import time
 import json
 import logging.handlers
-import email
+from datetime import datetime
+from dateutil import tz
 import itertools
 import sys
+
 try:
     import requests
     from requests import Request
@@ -54,9 +56,10 @@ def get_fireeye_indicators(**kwargs):
         'endDate': int(time.time())
     }
     # time_stamp utilized in authentication
-    date_time = email.utils.formatdate(localtime=True)
+    # date_time = email.utils.formatdate(localtime=True)
     # Mon, 22 Feb 2021 15:51:59 -0600
-    # print('Time Stamp:{}'.format(date_time))
+    date_time = datetime.now(tz=tz.tzlocal()).__format__("%a, %d %b %Y %H:%M:%S %z")
+    LOG.debug('Authentication time stamp:{}'.format(date_time))
 
     query = urlencode(dates, quote_via=quote_plus)
     # print(query)
