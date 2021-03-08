@@ -1,4 +1,6 @@
 import logging.handlers
+import logging
+from systemd.journal import JournaldLogHandler
 import json
 import time
 import ssl
@@ -44,6 +46,11 @@ except Exception as error:
 
 
 LOG = logging.getLogger(__name__)
+journald_handler = JournaldLogHandler()
+journald_handler.setFormatter(logging.Formatter(
+    '[%(levelname)s] %(message)s'
+))
+LOG.addHandler(journald_handler)
 
 """Suppress Detect certificate warning"""
 requests.packages.urllib3.disable_warnings()
