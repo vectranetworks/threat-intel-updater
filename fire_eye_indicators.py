@@ -4,6 +4,8 @@ from urllib.parse import urlencode, quote_plus
 import time
 import json
 import logging.handlers
+import logging
+# from systemd.journal import JournaldLogHandler
 from datetime import datetime
 from dateutil import tz
 import itertools
@@ -28,6 +30,12 @@ class InvalidConfigError(Error):
 
 
 LOG = logging.getLogger(__name__)
+"""journald_handler = JournaldLogHandler()
+journald_handler.setFormatter(logging.Formatter(
+    '[%(levelname)s] %(message)s'
+))
+LOG.addHandler(journald_handler)
+"""
 
 
 def validate_config(func):

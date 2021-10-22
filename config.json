@@ -1,11 +1,11 @@
 {
   "cognito": {
     "brain": "cs-brain.vectracloudlab.com",
-    "token": ""
+    "token": "57a68259aa00ec17abf40aa9b401cf48d703f970"
   },
   "crowdstrike": {
-    "api_id": "",
-    "secret": "",
+    "api_id": "5b20db43da5b429faac51a92733e7d66",
+    "secret": "l4WhedYNU8rfuLEGS910PZoQy2mbvtgI7niM35F6",
     "base_url": "https://api.crowdstrike.com/intel/combined/indicators/v1/",
     "feeds": {
       "feed1": {
@@ -27,6 +27,7 @@
         "confidence": "High"
       },
       "feed3": {
+        "skip": "",
         "name": "Crowdstrike Emotet",
         "stix_file": "crowdstrike_emotet_stix.xml",
         "filter": "type:\"domain\", type:\"ip_address\", type:\"url\"+malware_families:\"Emotet\"",
@@ -37,8 +38,8 @@
     }
   },
  "fireeye": {
-   "api_id": "",
-    "secret": "",
+   "api_id": "8aea70f03c10e930d428606d5bfbe7ecd703d489c3b2d4a5978e63ed3334b650",
+    "secret": "3f697189371f8c3baee71e1a1fe64ec87f4460f87844cf960a5ca918606f2d54",
     "base_url": "https://api.isightpartners.com",
     "X-App-Name": "Vectra-AI-V0.5.py",
     "feeds": {
@@ -59,7 +60,7 @@
         "confidence": "Low"
       },
       "feed3": {
-        "skip": "",
+        "skip": "no",
         "name": "Fire Eye Threat Intel URL",
         "stix_file": "fireeye_url_stix.xml",
         "filter": "&indicatorTypes=url",

@@ -1,5 +1,7 @@
 import sys
 import logging.handlers
+import logging
+# from systemd.journal import JournaldLogHandler
 from datetime import datetime, timedelta
 import itertools
 try:
@@ -23,6 +25,12 @@ class InvalidConfigError(Error):
 OAUTH_URL = "https://api.crowdstrike.com/oauth2/token"
 
 LOG = logging.getLogger(__name__)
+"""journald_handler = JournaldLogHandler()
+journald_handler.setFormatter(logging.Formatter(
+    '[%(levelname)s] %(message)s'
+))
+LOG.addHandler(journald_handler)
+"""
 
 
 def validate_config(func):
@@ -84,11 +92,11 @@ def get_falcon_indicators(access_token, **kwargs):
     if 'filter' in kwargs.keys():
         filters.append(kwargs['filter'])
 
-    filters.append("published_date:>={}".format(published_ts))
+    filters.append("last_updated:>={}".format(published_ts))
 
     params['filter'] = '+'.join(filters)
 
-    while params['offset'] <= total <= kwargs['max']:
+    while (params['offset'] <= total) and (params['offset'] <= kwargs['max']):
         params['limit'] = kwargs['max'] - params['offset'] if \
             kwargs['max'] - params['offset'] < params['limit'] else params['limit']
 
@@ -108,6 +116,7 @@ def get_falcon_indicators(access_token, **kwargs):
             total = resp.json()['meta']['pagination']['total']
             LOG.debug('Setting total to:{}'.format(total))
         params['offset'] += 10000
+        LOG.debug('offset:{}, total:{}, max:{}'.format(params['offset'], total, kwargs['max']))
         ind_list += resp.json()['resources']
     return ind_list
 
@@ -227,7 +236,6 @@ def get_crowdstrike(**kwargs):
     :return: list of IOC class IOCs
     """
     token = gen_falcon_token(kwargs['api_id'], kwargs['secret'])
-    # indicators = get_falcon_indicators(token, kwargs['base_url'])
     indicators = get_falcon_indicators(token, **kwargs)
     LOG.debug('Falcon returned {} total indicators'.format(len(indicators)))
 

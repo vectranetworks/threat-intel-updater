@@ -1,4 +1,6 @@
 import logging.handlers
+import logging
+# from systemd.journal import JournaldLogHandler
 import json
 import time
 import ssl
@@ -44,6 +46,12 @@ except Exception as error:
 
 
 LOG = logging.getLogger(__name__)
+"""journald_handler = JournaldLogHandler()
+journald_handler.setFormatter(logging.Formatter(
+    '[%(levelname)s] %(message)s'
+))
+LOG.addHandler(journald_handler)
+"""
 
 """Suppress Detect certificate warning"""
 requests.packages.urllib3.disable_warnings()
@@ -350,6 +358,10 @@ def main():
         if system_config.get('consolidated_raw_file'):
             dump_consolidated_indicators(consolidated_iocs, system_config['consolidated_raw_file'])
 
+        if len(sys.argv) > 1:
+            if sys.argv[1] == '--cron':
+                LOG.info('Process complete, called with --cron: exiting.')
+                sys.exit()
         LOG.info('Process complete, sleeping for {} days.'.format(system_config['interval_days']))
         time.sleep(int(system_config['interval_days'] * 86400))
 
