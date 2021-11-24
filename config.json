@@ -1,32 +1,41 @@
 {
   "cognito": {
-    "brain": "cs-brain.vectracloudlab.com",
-    "token": "57a68259aa00ec17abf40aa9b401cf48d703f970"
+    "brain": "",
+    "token": ""
   },
   "crowdstrike": {
-    "api_id": "5b20db43da5b429faac51a92733e7d66",
-    "secret": "l4WhedYNU8rfuLEGS910PZoQy2mbvtgI7niM35F6",
+    "api_id": "",
+    "secret": "",
     "base_url": "https://api.crowdstrike.com/intel/combined/indicators/v1/",
     "feeds": {
       "feed1": {
         "skip": "",
-        "name": "Crowdstrike Threat Intel",
-        "stix_file": "crowdstrike_stix.xml",
-        "filter": "type:\"domain\", type:\"ip_address\"",
-        "age": 10,
+        "name": "Crowdstrike Threat Intel IP",
+        "stix_file": "crowdstrike_ip_stix.xml",
+        "filter": "type:\"ip_address\"",
+        "age": 30,
         "max": 50000,
         "confidence": "Medium"
       },
       "feed2": {
         "skip": "",
-        "name": "Crowdstrike URL",
-        "stix_file": "crowdstrike_url_stix.xml",
-        "filter": "type:\"url\"",
-        "age": 10,
-        "max": 2000,
+        "name": "Crowdstrike Domain",
+        "stix_file": "crowdstrike_domain_stix.xml",
+        "filter": "type:\"domain\"",
+        "age": 90,
+        "max": 50000,
         "confidence": "High"
       },
       "feed3": {
+        "skip": "",
+        "name": "Crowdstrike URL",
+        "stix_file": "crowdstrike_url_stix.xml",
+        "filter": "type:\"url\"",
+        "age": 90,
+        "max": 50000,
+        "confidence": "High"
+      },
+      "feed4": {
         "skip": "",
         "name": "Crowdstrike Emotet",
         "stix_file": "crowdstrike_emotet_stix.xml",
@@ -38,8 +47,8 @@
     }
   },
  "fireeye": {
-   "api_id": "8aea70f03c10e930d428606d5bfbe7ecd703d489c3b2d4a5978e63ed3334b650",
-    "secret": "3f697189371f8c3baee71e1a1fe64ec87f4460f87844cf960a5ca918606f2d54",
+   "api_id": "",
+    "secret": "",
     "base_url": "https://api.isightpartners.com",
     "X-App-Name": "Vectra-AI-V0.5.py",
     "feeds": {
@@ -60,11 +69,24 @@
         "confidence": "Low"
       },
       "feed3": {
-        "skip": "no",
+        "skip": "",
         "name": "Fire Eye Threat Intel URL",
         "stix_file": "fireeye_url_stix.xml",
         "filter": "&indicatorTypes=url",
         "age": 1,
+        "confidence": "Low"
+      }
+    }
+  },
+   "anomali": {
+   "user": "",
+    "password": "",
+    "base_url": "https://limo.anomali.com/api/v1/taxii2/taxii/",
+    "feeds": {
+      "feed1": {
+        "skip": "no",
+        "name": "Anomali Collections",
+        "collection_list": ["Phish Tank", "Abuse.ch Ransomware IPs", "Abuse.ch Ransomware Domains", "DShield Scanning IPs", "Malware Domain List - Hotlist", "Blutmagie TOR Nodes", "Emerging Threats C&C Server", "DT COVID-19", "Lehigh Malwaredomains", "CyberCrime", "Emerging Threats - Compromised"],
         "confidence": "Low"
       }
     }

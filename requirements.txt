@@ -4,3 +4,4 @@ vectra-api-tools>=2.1rc0
 urllib3
 cybox
 python-dateutil
+taxii2-client
