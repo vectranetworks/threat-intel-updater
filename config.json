@@ -1,10 +1,6 @@
 {
   "cognito": {
-<<<<<<< HEAD
     "brain": "",
-=======
-    "brain": "cs-brain.vectracloudlab.com",
->>>>>>> 29ff650ad27689aae5b5592c70e513c6eff37539
     "token": ""
   },
   "crowdstrike": {
@@ -39,12 +35,7 @@
         "max": 50000,
         "confidence": "High"
       },
-<<<<<<< HEAD
       "feed4": {
-        "skip": "",
-=======
-      "feed3": {
->>>>>>> 29ff650ad27689aae5b5592c70e513c6eff37539
         "name": "Crowdstrike Emotet",
         "stix_file": "crowdstrike_emotet_stix.xml",
         "filter": "type:\"domain\", type:\"ip_address\", type:\"url\"+malware_families:\"Emotet\"",
