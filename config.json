@@ -36,6 +36,7 @@
         "confidence": "High"
       },
       "feed4": {
+        "skip": "",
         "name": "Crowdstrike Emotet",
         "stix_file": "crowdstrike_emotet_stix.xml",
         "filter": "type:\"domain\", type:\"ip_address\", type:\"url\"+malware_families:\"Emotet\"",
