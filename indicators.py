@@ -15,31 +15,31 @@ import sys
 try:
     import crowdstrike
     import fire_eye_indicators
+    import anomali
     import vat.vectra as vectra
     import requests
     from stix.core import STIXPackage
     from stix.indicator import Indicator, CompositeIndicatorExpression
-    from stix.ttp import TTP, Resource, Behavior
-    from stix.ttp.malware_instance import MalwareInstance
-    from stix.ttp.infrastructure import Infrastructure
-    from stix.ttp.behavior import Behavior
-    from stix.common.related import RelatedTTP
+    # from stix.ttp import TTP, Resource, Behavior
+    # from stix.ttp.malware_instance import MalwareInstance
+    # from stix.ttp.infrastructure import Infrastructure
+    # from stix.ttp.behavior import Behavior
+    # from stix.common.related import RelatedTTP
     from cybox.core import Observable, ObservableComposition
     from cybox.objects.address_object import Address
-    from stix.campaign import Campaign
-    from stix.common.vocabs import VocabString
-    from stix.threat_actor import ThreatActor
-    from cybox.objects.email_message_object import EmailMessage, Attachments, AttachmentReference
-    from cybox.objects.socket_address_object import SocketAddress
-    from cybox.objects.port_object import Port
+    # from stix.campaign import Campaign
+    # from stix.common.vocabs import VocabString
+    # from stix.threat_actor import ThreatActor
+    # from cybox.objects.email_message_object import EmailMessage, Attachments, AttachmentReference
+    # from cybox.objects.socket_address_object import SocketAddress
+    # from cybox.objects.port_object import Port
     from cybox.objects.domain_name_object import DomainName
     from cybox.objects.uri_object import URI
-    from cybox.objects.file_object import File
-    from cybox.objects.mutex_object import Mutex
-    from cybox.objects.socket_address_object import SocketAddress
-    from cybox.objects.network_connection_object import NetworkConnection
-    from stix.common import Identity
-
+    # from cybox.objects.file_object import File
+    # from cybox.objects.mutex_object import Mutex
+    # from cybox.objects.socket_address_object import SocketAddress
+    # from cybox.objects.network_connection_object import NetworkConnection
+    # from stix.common import Identity
 except Exception as error:
     print('\nMissing import requirements: {}\n'.format(str(error)))
     sys.exit(0)
@@ -130,8 +130,9 @@ def get_config():
     cognito_config = config.get('cognito')
     crowdstrike_config = config.get('crowdstrike')
     fireeye_config = config.get('fireeye')
+    anomali_config = config.get('anomali')
     system_config = config.get('system')
-    return cognito_config, crowdstrike_config, fireeye_config, system_config
+    return cognito_config, crowdstrike_config, fireeye_config, anomali_config, system_config
 
 
 def set_logging(level):
@@ -144,7 +145,7 @@ def init_stix_pkg(title):
     """
     Initializes STIX package
     :param title: Title of STIX threat intel file
-    :return: stixk package
+    :return: stix package
     """
     pkg = STIXPackage()
     pkg.title = title
@@ -262,7 +263,7 @@ def main():
     """
     Load configurations from file
     """
-    cognito_config, crowdstrike_config, fireeye_config, system_config = get_config()
+    cognito_config, crowdstrike_config, fireeye_config, anomali_config, system_config = get_config()
 
     """
     Configure logging level from configuration file
@@ -275,10 +276,12 @@ def main():
     vc = init_cognito_api(**cognito_config)
 
     """
-    Split feeds dictionaries from CrowdStrike config
+    Split feeds dictionaries from config
     """
     cs_feeds = crowdstrike_config.pop('feeds')
     fe_feeds = fireeye_config.pop('feeds')
+    an_feeds = anomali_config.pop('feeds')
+
     """
     Loop forever sleeping specified number of seconds
     """
@@ -350,6 +353,38 @@ def main():
                                            system_config['interval_days'], fe_feeds[feed]['confidence'])
 
             except fire_eye_indicators.InvalidConfigError:
+                continue
+
+        """
+        Anomali
+        """
+        for feed in an_feeds.keys():
+
+            LOG.info('Starting collection of Anomali indicators from collections: '
+                     '{}'.format(an_feeds.get(feed).get('collection_list')))
+            try:
+                an_config = {**anomali_config, **an_feeds[feed]}
+                an_indicator_dict_list = anomali.get_anomali(**an_config)
+                for collection in an_indicator_dict_list:
+                    for k in collection.keys():
+                        LOG.info('Anomali returned {} total IOCs in Collection:{}'.format(len(collection.get(k)), k))
+                        consolidated_iocs += collection.get(k)
+                        """
+                        Add IOCs to STIX pkg, and write pkg to xml file
+                        """
+                        an_pkg = init_stix_pkg(k)
+                        for i in collection.get(k):
+                            package_ioc(an_pkg, i)
+                        stix_file = k + '.xml'
+                        write_stix(an_pkg, stix_file)
+
+                        """
+                        Create or update Anomali threat feed
+                        """
+                        update_cognito_threat_feed(vc, stix_file, k,
+                                                   system_config['interval_days'], an_feeds[feed]['confidence'])
+
+            except anomali.InvalidConfigError:
                 continue
 
         """
